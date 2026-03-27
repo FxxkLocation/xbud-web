@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>小步点挂机平台 - 专业版</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .wrapper { max-width: 1200px; margin: 30px auto; }
+        #map { height: 500px; width: 100%; border-radius: 8px; z-index: 1; }
+        .card { border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .nav-tabs .nav-link { color: #495057; }
+        .nav-tabs .nav-link.active { font-weight: bold; color: #0d6efd; }
+        #dashSection { display: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+        <div class="container-fluid wrapper my-0">
+            <a class="navbar-brand" href="#">🏃‍♂️ 小步点(校园跑) 挂机平台</a>
+        </div>
+    </nav>
+
+    <div class="container wrapper" id="mainContainer">
+        <div class="row">
+            <!-- 登录区 -->
+            <div class="col-md-4" id="loginSection">
+                <div class="card">
+                    <div class="card-header bg-white mt-2 border-bottom-0">
+                        <h4 class="card-title text-center">用户登录</h4>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs mb-3" id="loginTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="phone-tab" data-bs-toggle="tab" data-bs-target="#phoneLogin" type="button" role="tab">手机号</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="student-tab" data-bs-toggle="tab" data-bs-target="#studentLogin" type="button" role="tab">学号</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="wechat-tab" data-bs-toggle="tab" data-bs-target="#wechatLogin" type="button" role="tab">微信</button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="loginTabContent">
+                            <!-- 手机号登录 -->
+                            <div class="tab-pane fade show active" id="phoneLogin" role="tabpanel">
+                                <form id="formPhone" onsubmit="return login(event, 'phone')">
+                                    <div class="mb-3">
+                                        <label class="form-label">手机号</label>
+                                        <input type="text" class="form-control" name="account" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">密码/验证码</label>
+                                        <input type="password" class="form-control" name="password" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">登录</button>
+                                </form>
+                            </div>
+                            
+                            <!-- 学号登录 -->
+                            <div class="tab-pane fade" id="studentLogin" role="tabpanel">
+                                <form id="formStudent" onsubmit="return login(event, 'student')">
+                                    <div class="mb-3">
+                                        <label class="form-label">学校</label>
+                                        <input type="text" class="form-control" name="school" placeholder="输入学校名称或ID" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">学号</label>
+                                        <input type="text" class="form-control" name="account" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">教务密码</label>
+                                        <input type="password" class="form-control" name="password" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">登录</button>
+                                </form>
+                            </div>
+
+                            <!-- 微信登录 -->
+                            <div class="tab-pane fade" id="wechatLogin" role="tabpanel">
+                                <div class="text-center p-4">
+                                    <div class="border rounded bg-light p-4 mb-3" style="min-height: 200px; display:flex; align-items:center; justify-content:center;">
+                                        <span class="text-muted">开发中...<br>(需要抓包获取 code 以便模拟授权)</span>
+                                    </div>
+                                    <button class="btn btn-success w-100" disabled>获取微信二维码</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="loginAlert" class="alert mt-3" style="display:none;" role="alert"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制台区 (初始隐藏) -->
+            <div class="col-md-12" id="dashSection">
+                <div class="row">
+                    <!-- 左侧：参数配置 -->
+                    <div class="col-md-4">
+                        <div class="card mb-3">
+                            <div class="card-header bg-white">
+                                <h5 class="mb-0">用户状态</h5>
+                            </div>
+                            <div class="card-body">
+                                <p>账号: <strong id="lblAccount">--</strong></p>
+                                <p>Token: <span class="text-success">已获取</span></p>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header bg-white">
+                                <h5 class="mb-0">模拟跑步参数</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="runForm" onsubmit="return submitRun(event)">
+                                    <div class="mb-3">
+                                        <label class="form-label">距离 (km)</label>
+                                        <input type="number" class="form-control" name="distance" step="0.1" value="2.0">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">配速 (min/km)</label>
+                                        <input type="number" class="form-control" name="speed" step="0.1" value="5.5">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">步频 (步/分)</label>
+                                        <input type="number" class="form-control" name="steps" value="160">
+                                    </div>
+                                    <button type="submit" id="btnRun" class="btn btn-success w-100">开始模拟</button>
+                                </form>
+                                <hr>
+                                <h6>执行日志</h6>
+                                <pre id="runLog" class="bg-light p-2 rounded" style="font-size: 12px; height: 150px; overflow-y: auto;">暂无数据...</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：地图 -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">打卡点与限制区域</h5>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="fetchMapData()">刷新数据</button>
+                            </div>
+                            <div class="card-body p-2">
+                                <div id="map"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- End Dash -->
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+    <script>
+        let map = null;
+        let pPolygon = null;
+        let pMarkers = [];
+        let pCurrentLocation = null;
+
+        // 登录逻辑
+        async function login(e, type) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            data.login_type = type;
+
+            const btn = form.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerText = '登录中...';
+
+            const alertBox = document.getElementById('loginAlert');
+            alertBox.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    // 登录成功，切换UI
+                    document.getElementById('lblAccount').innerText = data.account;
+                    document.getElementById('loginSection').style.display = "none";
+                    document.getElementById('dashSection').style.display = "block";
+                    
+                    // 延迟初始化地图，确保DOM已经显示，否则Leaflet会加载空白！
+                    setTimeout(() => {
+                        initMap();
+                        fetchMapData();
+                    }, 200);
+                } else {
+                    alertBox.className = "alert alert-danger mt-3";
+                    alertBox.innerText = "登录失败: " + result.message;
+                    alertBox.style.display = "block";
+                }
+            } catch (err) {
+                alertBox.className = "alert alert-danger mt-3";
+                alertBox.innerText = "请求异常: " + err.message;
+                alertBox.style.display = "block";
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '登录';
+            }
+        }
+
+        function initMap() {
+            if (map) {
+                map.invalidateSize();
+                return;
+            }
+            map = L.map('map').setView([43.835, 87.595], 15);
+            L.tileLayer('http://webrd{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+                subdomains: ["01", "02", "03", "04"],
+                maxZoom: 19,
+                attribution: '© 高德基础瓦片 (免Key)'
+            }).addTo(map);
+            
+            // 解决刚显示div时地图大小不对的问题
+            setTimeout(() => { map.invalidateSize(); }, 500);
+        }
+
+        async function fetchMapData() {
+            if (!map) return;
+            // 清理旧资源
+            if (pPolygon) map.removeLayer(pPolygon);
+            pMarkers.forEach(m => map.removeLayer(m));
+            pMarkers = [];
+            if (pCurrentLocation) map.removeLayer(pCurrentLocation);
+
+            try {
+                // 模拟获取限制区域和必经点
+                const res = await fetch('/api/map_data');
+                const data = await res.json();
+                
+                if (data.restricted_area && data.restricted_area.length > 0) {
+                    pPolygon = L.polygon(data.restricted_area, {
+                        color: '#FF33FF', weight: 2, opacity: 0.8, fillColor: '#1791fc', fillOpacity: 0.2
+                    }).addTo(map);
+                    map.fitBounds(pPolygon.getBounds());
+                }
+
+                if (data.points && data.points.length > 0) {
+                    data.points.forEach((p, idx) => {
+                        let m = L.marker(p).addTo(map).bindPopup("必经点 " + (idx + 1));
+                        pMarkers.push(m);
+                    });
+                }
+
+                if (data.current_location) {
+                    pCurrentLocation = L.circleMarker(data.current_location, {
+                        color: 'white',
+                        fillColor: '#007bff',
+                        fillOpacity: 1,
+                        radius: 8,
+                        weight: 2
+                    }).addTo(map).bindPopup("<b style='color:#007bff;'>📍 当前模拟定位</b>").openPopup();
+                }
+            } catch(e) {
+                console.error("加载地图数据失败", e);
+            }
+        }
+
+        async function submitRun(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnRun');
+            const logBox = document.getElementById('runLog');
+            
+            btn.disabled = true;
+            btn.innerText = "处理中...";
+            logBox.innerText = "[*] 开始模拟跑步请求...\n";
+            
+            const data = Object.fromEntries(new FormData(e.target).entries());
+
+            try {
+                const res = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                logBox.innerText += "[+] 请求成功返回: \n" + JSON.stringify(result, null, 2);
+            } catch (err) {
+                logBox.innerText += "[-] 请求失败: " + err.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "开始模拟";
+            }
+        }
+    </script>
+</body>
+</html>
